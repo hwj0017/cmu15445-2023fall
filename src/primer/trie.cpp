@@ -3,9 +3,39 @@
 #include "common/exception.h"
 
 namespace bustub {
-
+auto Trie::FindPath(std::string_view key) const -> std::vector<const TrieNode *> {
+  // key is not end with '\0'
+  std::vector<const TrieNode *> path;
+  const TrieNode *temp_node = root_.get();
+  if (temp_node != nullptr) {
+    path.emplace_back(temp_node);
+    for (auto c : key) {
+      if (auto it = temp_node->children_.find(c); it != temp_node->children_.end()) {
+        temp_node = it->second.get();
+        path.emplace_back(temp_node);
+      } else {
+        break;
+      }
+    }
+  }
+  return path;
+}
 template <class T>
 auto Trie::Get(std::string_view key) const -> const T * {
+  // maybe root
+  if (!key.empty() && key.back() == '\0') {
+    key = key.substr(0, key.size() - 1);
+  }
+  auto path = FindPath(key);
+  if (path.size() != key.size() + 1) {
+    return nullptr;
+  }
+  auto ptr = dynamic_cast<const TrieNodeWithValue<T> *>(path.back());
+  if (ptr == nullptr) {
+    return nullptr;
+  }
+  return ptr->value_.get();
+
   throw NotImplementedException("Trie::Get is not implemented.");
 
   // You should walk through the trie to find the node corresponding to the key. If the node doesn't exist, return
@@ -17,6 +47,31 @@ auto Trie::Get(std::string_view key) const -> const T * {
 template <class T>
 auto Trie::Put(std::string_view key, T value) const -> Trie {
   // Note that `T` might be a non-copyable type. Always use `std::move` when creating `shared_ptr` on that value.
+  if (!key.empty() && key.back() == '\0') {
+    key = key.substr(0, key.size() - 1);
+  }
+  std::vector<std::shared_ptr<TrieNode>> new_nodes;
+  auto path = FindPath(key);
+  // path.size()<=key.size()+1
+  for (size_t index = 0; index < key.size(); ++index) {
+    if (path.size() > index) {
+      new_nodes.emplace_back(std::shared_ptr<TrieNode>(path[index]->Clone()));
+    } else {
+      new_nodes.emplace_back(std::make_shared<TrieNode>());
+    }
+  }
+  if (path.size() == key.size() + 1) {
+    new_nodes.emplace_back(
+        std::make_shared<TrieNodeWithValue<T>>(path.back()->children_, std::make_shared<T>(std::move(value))));
+  } else {
+    new_nodes.emplace_back(std::make_shared<TrieNodeWithValue<T>>(std::make_shared<T>(std::move(value))));
+  }
+  for (size_t index = new_nodes.size() - 1; index > 0; --index) {
+    new_nodes[index - 1]->children_.insert_or_assign(key[index - 1], std::move(new_nodes[index]));
+  }
+  // new_nodes must have one
+  return Trie(new_nodes[0]);
+
   throw NotImplementedException("Trie::Put is not implemented.");
 
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
@@ -24,6 +79,46 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 }
 
 auto Trie::Remove(std::string_view key) const -> Trie {
+  if (!key.empty() && key.back() == '\0') {
+    key = key.substr(0, key.size() - 1);
+  }
+  auto path = FindPath(key);
+  if (path.size() != key.size() + 1 || !path.back()->is_value_node_) {
+    return Trie(root_);
+  }
+  // newNode number needed
+  size_t sum = path.size();
+  if (path[sum - 1]->children_.empty()) {
+    --sum;
+    for (; sum > 0; --sum) {
+      if (!path[sum - 1]->is_value_node_ && path[sum - 1]->children_.size() == 1) {
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (sum <= 0) {
+    return {};
+  }
+
+  std::vector<std::shared_ptr<TrieNode>> new_nodes;
+  for (size_t index = 0; index < sum - 1; ++index) {
+    new_nodes.emplace_back(std::shared_ptr<TrieNode>(path[index]->Clone()));
+  }
+  // need to save the last node
+  if (sum == key.size() + 1) {
+    new_nodes.emplace_back(std::make_shared<TrieNode>(path[sum - 1]->children_));
+  } else {
+    // don't need to save
+    new_nodes.emplace_back(std::shared_ptr<TrieNode>(path[sum - 1]->Clone()));
+    new_nodes.back()->children_.erase(key[sum - 1]);
+  }
+  for (size_t index = sum - 1; index > 0; --index) {
+    new_nodes[index - 1]->children_.insert_or_assign(key[index - 1], std::move(new_nodes[index]));
+  }
+  return Trie(std::move(new_nodes[0]));
+
   throw NotImplementedException("Trie::Remove is not implemented.");
 
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,

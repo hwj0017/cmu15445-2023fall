@@ -108,6 +108,8 @@ class Trie {
 
   // Create a new trie with the given root.
   explicit Trie(std::shared_ptr<const TrieNode> root) : root_(std::move(root)) {}
+  // find key
+  auto FindPath(std::string_view key) const -> std::vector<const TrieNode *>;
 
  public:
   // Create an empty trie.
