@@ -208,5 +208,7 @@ class BufferPoolManager {
   }
 
   // TODO(student): You may add additional private members and helper functions
+  void FlushFrame(Page *page);
+  std::mutex mutex_;
 };
 }  // namespace bustub

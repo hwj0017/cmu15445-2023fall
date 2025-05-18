@@ -12,9 +12,12 @@
 
 #pragma once
 
+#include <cstddef>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
+#include <queue>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -24,17 +27,6 @@
 namespace bustub {
 
 enum class AccessType { Unknown = 0, Lookup, Scan, Index };
-
-class LRUKNode {
- private:
-  /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
-  // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
-
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
-};
 
 /**
  * LRUKReplacer implements the LRU-k replacement policy.
@@ -150,12 +142,27 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  struct LRUKNode;
+  struct Comparator {
+    size_t k_;
+    bool operator()(const LRUKNode *l, const LRUKNode *r) const;
+  };
+  struct LRUKNode {
+    /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
+    // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
+
+    std::list<size_t> history_;
+    frame_id_t fid_;
+    bool is_evictable_;
+    std::set<LRUKNode *, Comparator>::const_iterator iter_;
+  };
+  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  std::set<LRUKNode *, Comparator> evict_queue_;
+  size_t current_timestamp_{0};
+  size_t max_size_;
+  size_t evictable_size_;
+  size_t k_;
+  std::mutex latch_;
 };
 
 }  // namespace bustub
