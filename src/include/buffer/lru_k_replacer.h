@@ -145,7 +145,7 @@ class LRUKReplacer {
   struct LRUKNode;
   struct Comparator {
     size_t k_;
-    bool operator()(const LRUKNode *l, const LRUKNode *r) const;
+    auto operator()(const LRUKNode *l, const LRUKNode *r) const -> bool;
   };
   struct LRUKNode {
     /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
@@ -160,7 +160,7 @@ class LRUKReplacer {
   std::set<LRUKNode *, Comparator> evict_queue_;
   size_t current_timestamp_{0};
   size_t max_size_;
-  size_t evictable_size_;
+  size_t evictable_size_{0};
   size_t k_;
   std::mutex latch_;
 };

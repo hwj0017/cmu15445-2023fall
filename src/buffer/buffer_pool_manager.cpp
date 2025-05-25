@@ -95,23 +95,23 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, AccessType access_type) -> 
     frame_id = free_list_.back();
     free_list_.pop_back();
     page = pages_ + frame_id;
-  } else if (!replacer_->Evict(&frame_id)) {
-    return nullptr;
-  } else {
+  } else if (replacer_->Evict(&frame_id)) {
     page = pages_ + frame_id;
     page_table_.erase(page->page_id_);
     FlushFrame(page);
+  } else {
+    return nullptr;
   }
 
   page_table_.emplace(page_id, frame_id);
   replacer_->RecordAccess(frame_id);
   replacer_->SetEvictable(frame_id, false);
   page->page_id_ = page_id;
-  page->pin_count_ = 0;
+  page->pin_count_ = 1;
   page->ResetMemory();
   auto promise = disk_scheduler_->CreatePromise();
   auto future = promise.get_future();
-  disk_scheduler_->Schedule({false, page->GetData(), page->GetPageId(), std::move(promise)});
+  disk_scheduler_->Schedule({false, page->data_, page->page_id_, std::move(promise)});
   future.get();
   return page;
 }
@@ -130,7 +130,9 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, AccessType a
   if (page->pin_count_ == 0) {
     replacer_->SetEvictable(it->second, true);
   }
-  if (is_dirty) page->is_dirty_ = is_dirty;
+  if (is_dirty) {
+    page->is_dirty_ = is_dirty;
+  }
   return true;
 }
 
@@ -157,20 +159,23 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(mutex_);
 
   frame_id_t frame_id;
-
-  if (auto it = page_table_.find(page_id); it == page_table_.end()) {
-    return true;
-  } else {
+  Page *page = nullptr;
+  if (auto it = page_table_.find(page_id); it != page_table_.end()) {
     frame_id = it->second;
+    page = pages_ + frame_id;
+    if (page->pin_count_ > 0) {
+      return false;
+    }
     page_table_.erase(it);
+  } else {
+    return true;
   }
 
-  auto page = pages_ + frame_id;
-  if (page->pin_count_ > 0) return false;
   replacer_->Remove(frame_id);
   free_list_.push_front(frame_id);
-  FlushFrame(page);
+  // FlushFrame(page);
   page->page_id_ = INVALID_PAGE_ID;
+  page->is_dirty_ = false;
   page->ResetMemory();
   DeallocatePage(page_id);
   return true;
@@ -178,12 +183,12 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
-auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, FetchPage(page_id)}; }
 
-auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { return {this, FetchPage(page_id)}; }
 
-auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard { return {this, FetchPage(page_id)}; }
 
-auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, NewPage(page_id)}; }
 
 }  // namespace bustub

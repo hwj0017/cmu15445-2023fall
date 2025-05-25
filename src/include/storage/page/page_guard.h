@@ -96,7 +96,7 @@ class BasicPageGuard {
     is_dirty_ = true;
     return page_->GetData();
   }
-
+  operator bool() const { return page_ != nullptr; }
   template <class T>
   auto AsMut() -> T * {
     return reinterpret_cast<T *>(GetDataMut());
@@ -106,7 +106,7 @@ class BasicPageGuard {
   friend class ReadPageGuard;
   friend class WritePageGuard;
 
-  [[maybe_unused]] BufferPoolManager *bpm_{nullptr};
+  BufferPoolManager *bpm_{nullptr};
   Page *page_{nullptr};
   bool is_dirty_{false};
 };
@@ -114,7 +114,7 @@ class BasicPageGuard {
 class ReadPageGuard {
  public:
   ReadPageGuard() = default;
-  ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}
+  ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) { page->RLatch(); }
   ReadPageGuard(const ReadPageGuard &) = delete;
   auto operator=(const ReadPageGuard &) -> ReadPageGuard & = delete;
 
@@ -166,6 +166,8 @@ class ReadPageGuard {
     return guard_.As<T>();
   }
 
+  operator bool() { return bool(guard_); }
+
  private:
   // You may choose to get rid of this and add your own private variables.
   BasicPageGuard guard_;
@@ -174,7 +176,7 @@ class ReadPageGuard {
 class WritePageGuard {
  public:
   WritePageGuard() = default;
-  WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}
+  WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) { page->WLatch(); }
   WritePageGuard(const WritePageGuard &) = delete;
   auto operator=(const WritePageGuard &) -> WritePageGuard & = delete;
 
@@ -232,6 +234,8 @@ class WritePageGuard {
   auto AsMut() -> T * {
     return guard_.AsMut<T>();
   }
+
+  operator bool() { return bool(guard_); }
 
  private:
   // You may choose to get rid of this and add your own private variables.

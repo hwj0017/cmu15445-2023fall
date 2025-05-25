@@ -112,6 +112,7 @@ class ExtendibleHTableDirectoryPage {
    */
   auto GetLocalDepthMask(uint32_t bucket_idx) const -> uint32_t;
 
+  auto GetMaxDepthMask() const -> uint32_t;
   /**
    * Get the global depth of the hash table directory
    *
