@@ -13,6 +13,7 @@
 #include "storage/page/extendible_htable_directory_page.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <unordered_map>
 
@@ -24,12 +25,18 @@ namespace bustub {
 void ExtendibleHTableDirectoryPage::Init(uint32_t max_depth) {
   // throw NotImplementedException("ExtendibleHTableDirectoryPage is not implemented");
   max_depth_ = max_depth;
-  for (auto &local_depth : local_depths_) local_depth = 0;
-  for (auto &page_id : bucket_page_ids_) page_id = INVALID_PAGE_ID;
+  for (auto &local_depth : local_depths_) {
+    local_depth = 0;
+  }
+  for (auto &page_id : bucket_page_ids_) {
+    page_id = INVALID_PAGE_ID;
+  }
 }
 
 auto ExtendibleHTableDirectoryPage::HashToBucketIndex(uint32_t hash) const -> uint32_t {
-  if (max_depth_ == sizeof(hash) * 8 || global_depth_ == 0) return 0;
+  if (max_depth_ == sizeof(hash) * 8 || global_depth_ == 0) {
+    return 0;
+  }
   return hash & ((1 << global_depth_) - 1);
 }
 
@@ -39,16 +46,22 @@ auto ExtendibleHTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) const -
 
 void ExtendibleHTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id) {
   // throw NotImplementedException("ExtendibleHTableDirectoryPage is not implemented");
-  bucket_page_ids_[bucket_idx] = bucket_page_id;
+  auto low_bit = GetLocalDepthMask(bucket_idx) & bucket_idx;
+  auto local_depth = local_depths_[bucket_idx];
+  for (uint32_t i = 0; i < 1 << (global_depth_ - local_depth); ++i) {
+    bucket_page_ids_[i << local_depth | low_bit] = bucket_page_id;
+  }
 }
 
 auto ExtendibleHTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) const -> uint32_t {
-  if (global_depth_ == 0) {
-    return 0;
-  }
+  assert(global_depth_ != 0);
   return bucket_idx ^ (1 << (local_depths_[bucket_idx] - 1));
 }
 
+// auto ExtendibleHTableDirectoryPage::GetMergeImageIndex(uint32_t bucket_idx) const -> uint32_t {
+//   assert(global_depth_ != 0);
+//   return bucket_idx ^ (1 << (local_depths_[bucket_idx] - 1));
+// }
 auto ExtendibleHTableDirectoryPage::GetGlobalDepth() const -> uint32_t { return global_depth_; }
 
 void ExtendibleHTableDirectoryPage::IncrGlobalDepth() {
@@ -71,10 +84,11 @@ void ExtendibleHTableDirectoryPage::DecrGlobalDepth() {
 }
 
 auto ExtendibleHTableDirectoryPage::CanShrink() -> bool {
-  for (uint32_t i = 0; i < (1 << global_depth_); ++i)
+  for (uint32_t i = 0; i < (1 << (global_depth_ - 1)); ++i) {
     if (local_depths_[i] == global_depth_) {
       return false;
     }
+  }
   return true;
 }
 
@@ -91,13 +105,27 @@ void ExtendibleHTableDirectoryPage::SetLocalDepth(uint32_t bucket_idx, uint8_t l
 
 void ExtendibleHTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) {
   // throw NotImplementedException("ExtendibleHTableDirectoryPage is not implemented");
-  ++local_depths_[bucket_idx];
+  auto low_bit = GetLocalDepthMask(bucket_idx) & bucket_idx;
+  auto local_depth = local_depths_[bucket_idx];
+  for (uint32_t i = 0; i < 1 << (global_depth_ - local_depth); ++i) {
+    ++local_depths_[i << local_depth | low_bit];
+  }
 }
 
 void ExtendibleHTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) {
   // throw NotImplementedException("ExtendibleHTableDirectoryPage is not implemented");
-  --local_depths_[bucket_idx];
+  auto low_bit = GetLocalDepthMask(bucket_idx) & bucket_idx;
+  auto local_depth = local_depths_[bucket_idx];
+  for (uint32_t i = 0; i < 1 << (global_depth_ - local_depth); ++i) {
+    --local_depths_[i << local_depth | low_bit];
+  }
 }
 
+auto ExtendibleHTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) const -> uint32_t {
+  auto local_depth = local_depths_[bucket_idx];
+  return (1 << local_depth) - 1;
+}
+
+auto ExtendibleHTableDirectoryPage::GetMaxDepthMask() const -> uint32_t { return (1 << max_depth_) - 1; }
 // auto ExtendibleHTableDirectoryPage::GetGlobalDepthMask() const -> uint32_t { return (1 << global_depth_) - 1; }
 }  // namespace bustub

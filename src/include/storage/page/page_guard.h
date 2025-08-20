@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+#include <ostream>
 #include "storage/page/page.h"
 
 namespace bustub {
@@ -96,7 +98,7 @@ class BasicPageGuard {
     is_dirty_ = true;
     return page_->GetData();
   }
-  operator bool() const { return page_ != nullptr; }
+  explicit operator bool() const { return page_ != nullptr; }
   template <class T>
   auto AsMut() -> T * {
     return reinterpret_cast<T *>(GetDataMut());
@@ -114,7 +116,12 @@ class BasicPageGuard {
 class ReadPageGuard {
  public:
   ReadPageGuard() = default;
-  ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) { page->RLatch(); }
+  ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {
+    if (page != nullptr) {
+      std::cout << page->GetPageId() << " rlatch" << std::endl;
+      page->RLatch();
+    }
+  }
   ReadPageGuard(const ReadPageGuard &) = delete;
   auto operator=(const ReadPageGuard &) -> ReadPageGuard & = delete;
 
@@ -166,7 +173,7 @@ class ReadPageGuard {
     return guard_.As<T>();
   }
 
-  operator bool() { return bool(guard_); }
+  explicit operator bool() { return static_cast<bool>(guard_); }
 
  private:
   // You may choose to get rid of this and add your own private variables.
@@ -176,7 +183,12 @@ class ReadPageGuard {
 class WritePageGuard {
  public:
   WritePageGuard() = default;
-  WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) { page->WLatch(); }
+  WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {
+    if (page != nullptr) {
+      std::cout << page->GetPageId() << " wlatch" << std::endl;
+      page->WLatch();
+    }
+  }
   WritePageGuard(const WritePageGuard &) = delete;
   auto operator=(const WritePageGuard &) -> WritePageGuard & = delete;
 
@@ -235,7 +247,7 @@ class WritePageGuard {
     return guard_.AsMut<T>();
   }
 
-  operator bool() { return bool(guard_); }
+  explicit operator bool() { return static_cast<bool>(guard_); }
 
  private:
   // You may choose to get rid of this and add your own private variables.

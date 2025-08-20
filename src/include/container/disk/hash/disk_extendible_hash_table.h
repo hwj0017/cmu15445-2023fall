@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <deque>
 #include <queue>
 #include <string>
@@ -103,8 +104,6 @@ class DiskExtendibleHashTable {
 
   // auto findPath(const K &key) const -> std::vector<WritePageGuard>;
 
-  void MergePage(Page *dst, Page *src);
-
  private:
   /**
    * Hash - simple helper to downcast MurmurHash's 64-bit hash to 32-bit
@@ -123,10 +122,16 @@ class DiskExtendibleHashTable {
 
   void UpdateDirectoryMapping(ExtendibleHTableDirectoryPage *directory, uint32_t new_bucket_idx,
                               page_id_t new_bucket_page_id, uint32_t new_local_depth, uint32_t local_depth_mask);
+  // void MergePage(ExtendibleHTableBucketPage<K, V, KC> *old_bucket, ExtendibleHTableBucketPage<K, V, KC> *new_bucket);
 
   void MigrateEntries(ExtendibleHTableBucketPage<K, V, KC> *old_bucket,
                       ExtendibleHTableBucketPage<K, V, KC> *new_bucket);
 
+  auto CreateDirectory(ExtendibleHTableHeaderPage *header, uint32_t directory_index) -> WritePageGuard;
+  auto CreateBucket(ExtendibleHTableDirectoryPage *directory, uint32_t bucket_index) -> WritePageGuard;
+
+  void SplitBucket(ExtendibleHTableBucketPage<K, V, KC> *old_bucket, ExtendibleHTableBucketPage<K, V, KC> *new_bucket,
+                   uint32_t local_depth_mask, uint32_t new_bucket_idx);
   // member variables
   std::string index_name_;
   BufferPoolManager *bpm_;

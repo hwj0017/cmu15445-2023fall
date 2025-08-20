@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "storage/page/extendible_htable_header_page.h"
+#include <cstdint>
 #include <cstring>
 
 #include "common/config.h"
@@ -21,7 +22,9 @@ namespace bustub {
 void ExtendibleHTableHeaderPage::Init(uint32_t max_depth) {
   // throw NotImplementedException("ExtendibleHTableHeaderPage is not implemented");
   max_depth_ = max_depth;
-  for (auto &page_id : directory_page_ids_) page_id = INVALID_PAGE_ID;
+  for (uint32_t index = 0; index < 1 << max_depth; ++index) {
+    directory_page_ids_[index] = INVALID_PAGE_ID;
+  }
 }
 
 auto ExtendibleHTableHeaderPage::HashToDirectoryIndex(uint32_t hash) const -> uint32_t {
